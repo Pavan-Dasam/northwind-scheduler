@@ -32,3 +32,67 @@ def test_system_prompt_includes_directory():
     SchedulingAgent(model, Store.load()).run("hi")
     system = model.calls[0][0]["content"]
     assert "Priya Raman" in system
+
+
+def test_agent_handles_invented_person():
+    model = FakeModel([
+        tool_call("find_free_slots", attendees=["priya", "ghost"], date="2026-11-03", duration_minutes=30),
+        final("I could not schedule the meeting because 'ghost' is not in the directory."),
+    ])
+    agent = SchedulingAgent(model, Store.load())
+    answer = agent.run("Schedule a meeting with Priya and ghost")
+    assert "not in the directory" in answer
+    tool_resp = json.loads(model.calls[1][-1]["content"])
+    assert "error" in tool_resp
+    assert "ghost" in tool_resp["error"]
+
+
+def test_agent_handles_markdown_wrapped_json():
+    wrapped_json = "```json\n" + final("Available at 14:00") + "\n```"
+    model = FakeModel([wrapped_json])
+    agent = SchedulingAgent(model, Store.load())
+    assert agent.run("When can we meet?") == "Available at 14:00"
+
+
+def test_agent_handles_malformed_json_and_recovers():
+    model = FakeModel([
+        "Not JSON at all, just plain text",
+        final("Recovered after error."),
+    ])
+    agent = SchedulingAgent(model, Store.load())
+    assert agent.run("Find time") == "Recovered after error."
+    assert "Invalid JSON response" in model.calls[1][-1]["content"]
+
+
+def test_agent_handles_unknown_tool():
+    model = FakeModel([
+        tool_call("non_existent_tool", some_arg="value"),
+        final("Handled unknown tool."),
+    ])
+    agent = SchedulingAgent(model, Store.load())
+    assert agent.run("Do something") == "Handled unknown tool."
+    tool_resp = json.loads(model.calls[1][-1]["content"])
+    assert "error" in tool_resp
+    assert "does not exist" in tool_resp["error"]
+
+
+def test_agent_handles_bad_tool_arguments():
+    model = FakeModel([
+        tool_call("find_free_slots", attendees=["priya"], date="2026-11-03", duration_minutes=-10),
+        final("Duration must be positive."),
+    ])
+    agent = SchedulingAgent(model, Store.load())
+    assert agent.run("Schedule -10 min meeting") == "Duration must be positive."
+    tool_resp = json.loads(model.calls[1][-1]["content"])
+    assert "error" in tool_resp
+
+
+def test_agent_loop_terminates_on_stuck_model():
+    # A model that repeatedly calls a tool forever
+    stuck_model = FakeModel([
+        tool_call("list_people"),
+    ], loop_last=True)
+    agent = SchedulingAgent(stuck_model, Store.load(), max_turns=3)
+    response = agent.run("Find someone")
+    assert "could not complete your request within the allowed number of steps" in response
+    assert len(stuck_model.calls) == 3
