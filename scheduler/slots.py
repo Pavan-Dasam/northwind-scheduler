@@ -42,16 +42,20 @@ def slot_to_time(index: int) -> str:
     return minutes_to_time(DAY_START_MINUTES + index * SLOT_MINUTES)
 
 
-def availability_from_busy(busy_blocks: list[dict]) -> list[bool]:
+def availability_from_busy(busy_blocks: list[dict], buffer_minutes: int = 0) -> list[bool]:
     """Build a free/busy list for one day from a person's busy blocks.
 
-    Any slot that overlaps a busy block, even partially, is marked busy.
+    Any slot that overlaps a busy block (including any buffer before and after),
+    even partially, is marked busy.
     """
     free = [True] * SLOTS_PER_DAY
     for block in busy_blocks:
-        start = max(0, time_to_slot(block["start"]))
-        end = min(SLOTS_PER_DAY, time_to_slot_ceil(block["end"]))
-        for i in range(start, end):
+        start_min = time_to_minutes(block["start"]) - max(0, buffer_minutes)
+        end_min = time_to_minutes(block["end"]) + max(0, buffer_minutes)
+        start_slot = max(0, (start_min - DAY_START_MINUTES) // SLOT_MINUTES)
+        end_offset = end_min - DAY_START_MINUTES
+        end_slot = min(SLOTS_PER_DAY, -(-end_offset // SLOT_MINUTES))
+        for i in range(start_slot, end_slot):
             free[i] = False
     return free
 
@@ -75,10 +79,14 @@ def find_free_windows(
     Only windows that begin at or after `start_slot` and finish by
     `end_slot` are considered.
     """
+    if slots_needed <= 0:
+        return []
     if end_slot is None:
         end_slot = SLOTS_PER_DAY
+    start_slot = max(0, start_slot)
+    end_slot = min(SLOTS_PER_DAY, end_slot)
     results = []
-    for start in range(start_slot, end_slot - slots_needed):
+    for start in range(start_slot, end_slot - slots_needed + 1):
         if all(free[start:start + slots_needed]):
             results.append(start)
     return results
