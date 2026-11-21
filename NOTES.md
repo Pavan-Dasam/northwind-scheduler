@@ -63,11 +63,13 @@
 
 ## 4. What To Do Next
 
-- **Multi-Day Range Search**:
-  - Allow `find_free_slots` to accept a date range (e.g., `start_date` and `end_date`) or search across an entire work week to answer queries like "find the earliest slot this week".
-- **Lunch Hour Protection**:
-  - Add a user-level preference to protect 12:00–13:00 as a lunch hour unless explicitly overridden.
-- **Timezone Awareness**:
-  - While out of scope for this assignment, in a real multi-office company, attendees across different time zones would need UTC-normalized slot calculations.
-- **Fuzzy Name Matching**:
-  - Expand directory resolution from exact/case-insensitive full name matching to fuzzy phonetic matching (e.g., using Levenshtein distance) to handle typos in names.
+- **What to change or add with more time**:
+  - **Multi-Day Range Search**: Allow `find_free_slots` to accept a date range (e.g., `start_date` and `end_date`) or search across an entire work week to answer queries like "find the earliest slot this week".
+  - **Lunch Hour Protection**: Add an employee preference to protect 12:00–13:00 as a lunch hour unless explicitly requested.
+  - **Timezone Awareness**: In a distributed team, attendees across different time zones would need UTC-normalized slot calculations.
+  - **Fuzzy Name Matching**: Expand directory resolution from exact/case-insensitive full name matching to fuzzy phonetic matching (e.g., Levenshtein distance) to handle minor spelling errors.
+
+- **Things noticed but deliberately left alone**:
+  - **Calendar Write Operations / Booking**: Noticed the assistant only reads availability and cannot create or send calendar invites. Left alone because the specification explicitly marks booking and calendar mutation as out of scope.
+  - **30-Minute Discrete Slot Engine**: Noticed that arbitrary meeting lengths (e.g. 20 or 40 minutes) are rounded up to 30-minute slot boundaries. Left alone because the business rules state Northwind schedules in 30-minute increments, and rewriting the core to 1-minute intervals would add unnecessary complexity and risk regressions without changing the fundamental behavior.
+  - **Recurring Meetings and Multiple Calendar Sources**: Left out per the instructions ("Time zones, recurring meetings, or calendar data beyond the sample files are out of scope").

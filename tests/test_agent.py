@@ -96,3 +96,17 @@ def test_agent_loop_terminates_on_stuck_model():
     response = agent.run("Find someone")
     assert "could not complete your request within the allowed number of steps" in response
     assert len(stuck_model.calls) == 3
+
+
+def test_agent_passes_buffer_minutes_to_find_free_slots():
+    model = FakeModel([
+        tool_call("find_free_slots", attendees=["priya"], date="2026-11-03", duration_minutes=30, buffer_minutes=15),
+        final("Priya has free slots with a 15-minute buffer."),
+    ])
+    agent = SchedulingAgent(model, Store.load())
+    answer = agent.run("Find 30 minutes for Priya on Tuesday with 15 minutes buffer")
+    assert "15-minute buffer" in answer
+    tool_content = json.loads(model.calls[1][-1]["content"])
+    assert isinstance(tool_content, list)
+    # 13:30-14:00 should not be in the results because of the 14:00 meeting with 15m buffer
+    assert not any(s["start"] == "13:30" and s["end"] == "14:00" for s in tool_content)
